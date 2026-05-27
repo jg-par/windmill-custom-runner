@@ -1,0 +1,39 @@
+[env]
+#DOCKER_NO_SUDO=true
+DOCKER = "{{ exec(command='sh -c \"if [ $(id -u) -eq 0 ] || [ \\\"$DOCKER_NO_SUDO\\\" = true ]; then echo docker; else echo sudo docker; fi\"') }}"
+DOCKERFILE="Dockerfile.runner"
+SOURCE_RUNNER_IMAGE = "ghcr.io/windmill-labs/windmill:main"
+CUSTOM_RUNNER_IMAGE_NAME="windmill-runner-custom:latest"
+DATABASE_URL="postgres://postgres:changeme@db/windmill?sslmode=disable"
+
+
+[tasks.test]
+description = "Verify docker is accessible (with sudo if not root)"
+run = """
+if $DOCKER info > /dev/null 2>&1; then
+  echo "OK: docker accessible as $(id -un) (using: $DOCKER)"
+else
+  echo "ERROR: docker is not accessible" >&2
+  exit 1
+fi
+"""
+
+[tasks.build]
+description = "Build the custom Windmill runner image"
+run = "$DOCKER build -f $DOCKERFILE --build-arg WM_IMAGE=$SOURCE_RUNNER_IMAGE -t $CUSTOM_RUNNER_IMAGE_NAME ."
+
+[tasks.up]
+description = "Run the full Windmill stack with the custom runner"
+env.WM_IMAGE = "$CUSTOM_RUNNER_IMAGE_NAME"
+run = "$DOCKER compose -f ../docker-compose.yml -f docker-compose.yml up -d"
+
+[tasks.down]
+description = "Stop the stack"
+run = "$DOCKER compose -f ../docker-compose.yml -f docker-compose.yml down"
+
+[tasks.clean]
+description = "Stop the stack and remove volumes and the custom image"
+run = """
+$DOCKER compose -f ../docker-compose.yml -f docker-compose.yml down -v --remove-orphans
+$DOCKER image rm -f windmill-runner-custom:latest
+"""

@@ -1,0 +1,48 @@
+version: "3.7"
+
+# Custom Windmill deployment with a bespoke runner image that extends WM_IMAGE
+# with AWS CLI v2 and the boto3, atlassian-python-api, and datadog Python packages.
+#
+# Usage:
+#   docker compose -f ../docker-compose.yml -f docker-compose.yml up
+#
+# Build the custom runner image first:
+#   mise run build
+
+services:
+  windmill_worker:
+    image: windmill-runner-custom:latest
+    pull_policy: never
+    build:
+      context: .
+      dockerfile: Dockerfile.runner
+      args:
+        WM_IMAGE: ${WM_IMAGE}
+    deploy:
+      replicas: 1
+      resources:
+        limits:
+          memory: 2048M
+
+  windmill_worker_native:
+    image: windmill-runner-custom:latest
+    pull_policy: never
+    build:
+      context: .
+      dockerfile: Dockerfile.runner
+      args:
+        WM_IMAGE: ${WM_IMAGE}
+
+  # Workaround: file bind mounts fail on this host's runc/kernel version.
+  # Shadow /etc/caddy with a tmpfs to prevent the parent's file bind mount from
+  # being applied, then mount the project dir and point caddy at the config within it.
+  caddy:
+    volumes:
+      - ..:/project-host:ro
+      - caddy_data:/data
+    tmpfs:
+      - /etc/caddy
+    command: caddy run --config /project-host/Caddyfile --adapter caddyfile
+
+volumes:
+  caddy_data:
