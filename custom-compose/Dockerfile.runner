@@ -1,5 +1,4 @@
-ARG WM_IMAGE
-FROM ${WM_IMAGE}
+FROM ghcr.io/windmill-labs/windmill:main
 
 USER root
 

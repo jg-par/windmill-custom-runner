@@ -20,7 +20,7 @@ fi
 
 [tasks.build]
 description = "Build the custom Windmill runner image"
-run = "$DOCKER build -f $DOCKERFILE --build-arg WM_IMAGE=$SOURCE_RUNNER_IMAGE -t $CUSTOM_RUNNER_IMAGE_NAME ."
+run = "$DOCKER build -f $DOCKERFILE --build-arg WM_IMAGE='{{env.SOURCE_RUNNER_IMAGE}}' -t $CUSTOM_RUNNER_IMAGE_NAME ."
 
 [tasks.up]
 description = "Run the full Windmill stack with the custom runner"
