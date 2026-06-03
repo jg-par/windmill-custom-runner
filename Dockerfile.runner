@@ -1,4 +1,5 @@
-FROM ghcr.io/windmill-labs/windmill:main
+ARG WM_IMAGE="ghcr.io/windmill-labs/windmill:main"
+FROM ${WM_IMAGE}
 
 USER root
 
@@ -8,7 +9,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
         unzip \
     && curl -fsSL "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o /tmp/awscliv2.zip \
     && unzip -q /tmp/awscliv2.zip -d /tmp \
-    && /tmp/aws/install \
+    && /tmp/aws/install --update \
     && rm -rf /tmp/awscliv2.zip /tmp/aws \
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/*
@@ -18,6 +19,7 @@ RUN uv pip install --system --no-cache --break-system-packages \
     boto3 \
     atlassian-python-api \
     datadog \
-    pymysql \
-    dbutils \
-    psycopg2-binary
+    playwright \
+    && playwright install \
+    && playwright install-deps   
+    

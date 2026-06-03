@@ -1,15 +1,20 @@
+[settings]
+windows_default_inline_shell_args = "powershell -c"
+windows_default_file_shell_args   = "powershell -c"
+
 [env]
-#DOCKER_NO_SUDO=true
-DOCKER = "{{ exec(command='sh -c \"if [ $(id -u) -eq 0 ] || [ \\\"$DOCKER_NO_SUDO\\\" = true ]; then echo docker; else echo sudo docker; fi\"') }}"
-DOCKERFILE="Dockerfile.runner"
+# Set DOCKER_SUDO=true to prefix docker commands with sudo (e.g. DOCKER_SUDO=true mise run build)
+DOCKER_SUDO = "false"
+DOCKERFILE = "Dockerfile.runner"
 SOURCE_RUNNER_IMAGE = "ghcr.io/windmill-labs/windmill:main"
-CUSTOM_RUNNER_IMAGE_NAME="windmill-runner-custom:latest"
-DATABASE_URL="postgres://postgres:changeme@db/windmill?sslmode=disable"
+CUSTOM_RUNNER_IMAGE_NAME = "windmill-runner-custom:latest"
+DATABASE_URL = "postgres://postgres:changeme@db/windmill?sslmode=disable"
 
 
 [tasks.test]
-description = "Verify docker is accessible (with sudo if not root)"
+description = "Verify docker is accessible (with sudo if DOCKER_SUDO=true)"
 run = """
+DOCKER=$([ "$DOCKER_SUDO" = "true" ] && echo "sudo docker" || echo "docker")
 if $DOCKER info > /dev/null 2>&1; then
   echo "OK: docker accessible as $(id -un) (using: $DOCKER)"
 else
@@ -17,23 +22,29 @@ else
   exit 1
 fi
 """
+run_windows = "docker info; if ($LASTEXITCODE -eq 0) { Write-Host 'OK: docker accessible' } else { Write-Error 'ERROR: docker is not accessible'; exit 1 }"
 
 [tasks.build]
 description = "Build the custom Windmill runner image"
-run = "$DOCKER build -f $DOCKERFILE --build-arg WM_IMAGE=$SOURCE_RUNNER_IMAGE -t $CUSTOM_RUNNER_IMAGE_NAME ."
+run         = "$([ \"$DOCKER_SUDO\" = \"true\" ] && echo 'sudo docker' || echo 'docker') build -f $DOCKERFILE --build-arg WM_IMAGE=$SOURCE_RUNNER_IMAGE -t $CUSTOM_RUNNER_IMAGE_NAME ."
+run_windows = "docker build -f $env:DOCKERFILE --build-arg WM_IMAGE=$env:SOURCE_RUNNER_IMAGE -t $env:CUSTOM_RUNNER_IMAGE_NAME ."
 
 [tasks.up]
 description = "Run the full Windmill stack with the custom runner"
 env.WM_IMAGE = "$CUSTOM_RUNNER_IMAGE_NAME"
-run = "$DOCKER compose -f ../docker-compose.yml -f docker-compose.yml up -d"
+run         = "$([ \"$DOCKER_SUDO\" = \"true\" ] && echo 'sudo docker' || echo 'docker') compose -f ../docker-compose.yml -f docker-compose.yml up -d"
+run_windows = "docker compose -f ../docker-compose.yml -f docker-compose.yml up -d"
 
 [tasks.down]
 description = "Stop the stack"
-run = "$DOCKER compose -f ../docker-compose.yml -f docker-compose.yml down"
+run         = "$([ \"$DOCKER_SUDO\" = \"true\" ] && echo 'sudo docker' || echo 'docker') compose -f ../docker-compose.yml -f docker-compose.yml down"
+run_windows = "docker compose -f ../docker-compose.yml -f docker-compose.yml down"
 
 [tasks.clean]
 description = "Stop the stack and remove volumes and the custom image"
 run = """
+DOCKER=$([ "$DOCKER_SUDO" = "true" ] && echo "sudo docker" || echo "docker")
 $DOCKER compose -f ../docker-compose.yml -f docker-compose.yml down -v --remove-orphans
 $DOCKER image rm -f windmill-runner-custom:latest
 """
+run_windows = "docker compose -f ../docker-compose.yml -f docker-compose.yml down -v --remove-orphans; docker image rm -f windmill-runner-custom:latest"
